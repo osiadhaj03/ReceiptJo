@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد سند قبض</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', 'Inter', sans-serif;
+            direction: rtl; /* Ensure right-to-left for Arabic */
+        }
+        .receipt-preview {
+            font-family: 'Arial', 'Cairo', sans-serif; /* Fallback font for PDF rendering if needed */
+        }
+        .form-input, .form-select { /* Added form-select for consistent styling */
+            @apply w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out bg-white;
+        }
+        .form-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .btn-primary { /* Main action button in preview */
+            @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center;
+        }
+        .btn-secondary { /* Secondary action button in preview / main form button */
+            @apply bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center;
+        }
+        .btn-form-primary { /* Main button on the form page */
+             @apply w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out flex items-center justify-center;
+        }
+        .message-box {
+            @apply p-4 mb-4 text-sm rounded-lg;
+        }
+        .message-box-error {
+            @apply bg-red-100 text-red-700;
+        }
+        .message-box-success {
+            @apply bg-green-100 text-green-700;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 sm:p-6">
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg">
+        <header class="mb-6 sm:mb-8 text-center">
+            <h1 class="text-2xl sm:text-3xl font-bold text-indigo-700">مولد سند قبض</h1>
+            <p class="text-gray-600 mt-1">أدخل تفاصيل السند أدناه ثم قم بمعاينته وتنزيله.</p>
+        </header>
+
+        <div id="messageArea" class="message-box" style="display: none;"></div>
+
+        <form id="receiptForm" class="space-y-5">
+            <div>
+                <label for="recipientName" class="form-label">اسم المستلم:</label>
+                <select id="recipientName" name="recipientName" class="form-select" required>
+                    <option value="أسيد صلاح">أسيد صلاح</option>
+                    <option value="عبدالملك الديب">عبدالملك الديب</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="payerName" class="form-label">استلمنا من السيد/السادة:</label>
+                <input type="text" id="payerName" name="payerName" class="form-input" placeholder="مثال: أحمد خالد" required>
+            </div>
+            
+            <div> <label for="apartmentNumber" class="form-label">رقم الشقة:</label>
+                <input type="text" id="apartmentNumber" name="apartmentNumber" class="form-input" placeholder="مثال: شقة 101">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="amount" class="form-label">المبلغ:</label>
+                    <input type="number" id="amount" name="amount" class="form-input" placeholder="مثال: 100" required step="any">
+                </div>
+                <div>
+                    <label for="currency" class="form-label">العملة:</label>
+                    <input type="text" id="currency" name="currency" class="form-input" value="دينار أردني" placeholder="مثال: دينار أردني" required>
+                </div>
+            </div>
+
+            <div>
+                <label for="receiptDate" class="form-label">تاريخ الاستلام:</label>
+                <input type="date" id="receiptDate" name="receiptDate" class="form-input" required>
+            </div>
+
+            <div>
+                <label for="reason" class="form-label">وذلك مقابل (سبب الدفع):</label>
+                <textarea id="reason" name="reason" rows="3" class="form-input" placeholder="مثال: دفعة من قيمة فاتورة رقم 123" required></textarea>
+            </div>
+
+            <button type="button" id="showPreviewButton" class="btn-form-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                إنشاء ومعاينة السند
+            </button>
+        </form>
+    </div>
+
+    <div id="receiptPreviewContainer" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50" style="display: none;">
+        <div class="bg-white p-6 sm:p-8 rounded-lg shadow-xl max-w-md w-full relative receipt-preview">
+            <button id="closePreviewButton" class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            <div id="receiptContent" class="space-y-3 text-sm">
+                <h2 class="text-xl font-bold text-center mb-4 border-b pb-2">سـنـد قـبـض</h2>
+                <div class="grid grid-cols-2 gap-x-4"> 
+                    <p><strong>الرقم:</strong> <span id="receiptNumberPreview"></span></p>
+                    <p class="text-left"><strong>التاريخ:</strong> <span id="receiptDatePreview"></span></p>
+                    <div></div> 
+                    <p class="text-left"><strong>الوقت:</strong> <span id="receiptTimePreview"></span></p>
+                </div>
+                <p><strong>اسم المستلم:</strong> <span id="receiptRecipientNamePreview" class="font-semibold"></span></p>
+                <hr class="my-2">
+                <p><strong>استلمنا من السيد/السادة:</strong> <span id="receiptPayerNamePreview" class="font-semibold"></span></p>
+                <p><strong>رقم الشقة:</strong> <span id="receiptApartmentNumberPreview" class="font-semibold"></span></p> <p><strong>مبلغاً وقدره:</strong> <span id="receiptAmountPreview" class="font-semibold"></span> (<span id="receiptAmountWordsPreview" class="font-semibold"></span>)</p>
+                <p><strong>العملة:</strong> <span id="receiptCurrencyPreview" class="font-semibold"></span></p>
+                <p><strong>وذلك عن/مقابل:</strong> <span id="receiptReasonPreview" class="font-semibold"></span></p>
+                <hr class="my-2">
+                <div class="grid grid-cols-2 gap-4 mt-6 pt-4">
+                    <div>
+                        <p class="text-center"><strong>توقيع المستلم</strong></p>
+                        <p class="text-center mt-8">___________________</p>
+                    </div>
+                    <div>
+                        <p class="text-center"><strong>توقيع الدافع</strong></p>
+                        <p class="text-center mt-8">___________________</p>
+                    </div>
+                </div>
+                 <p class="text-xs text-gray-500 mt-4 text-center">هذا السند تم إنشاؤه بواسطة مولد السندات.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 rtl:sm:space-x-reverse mt-6">
+                <button type="button" id="downloadAsImageButton" class="btn-secondary flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"> <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /> </svg>
+                    تنزيل كـ صورة
+                </button>
+                <button type="button" id="downloadAsPdfButton" class="btn-primary flex-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-5 h-5 ml-2" viewBox="0 0 20 20" fill="currentColor"> <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /> </svg>
+                    تنزيل كـ PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // jsPDF is available globally via window.jspdf
+        const { jsPDF } = window.jspdf;
+
+        // DOM Elements
+        const receiptForm = document.getElementById('receiptForm');
+        const showPreviewButton = document.getElementById('showPreviewButton');
+        const closePreviewButton = document.getElementById('closePreviewButton');
+        const downloadAsImageButton = document.getElementById('downloadAsImageButton');
+        const downloadAsPdfButton = document.getElementById('downloadAsPdfButton');
+        
+        const recipientNameInput = document.getElementById('recipientName');
+        const payerNameInput = document.getElementById('payerName');
+        const apartmentNumberInput = document.getElementById('apartmentNumber'); // New input element
+        const amountInput = document.getElementById('amount');
+        const currencyInput = document.getElementById('currency');
+        const receiptDateInput = document.getElementById('receiptDate');
+        const reasonInput = document.getElementById('reason');
+        
+        const messageArea = document.getElementById('messageArea');
+
+        // Receipt Preview Elements
+        const receiptPreviewContainer = document.getElementById('receiptPreviewContainer');
+        const receiptContentDiv = document.getElementById('receiptContent');
+        const receiptNumberPreview = document.getElementById('receiptNumberPreview');
+        const receiptDatePreview = document.getElementById('receiptDatePreview');
+        const receiptTimePreview = document.getElementById('receiptTimePreview'); 
+        const receiptRecipientNamePreview = document.getElementById('receiptRecipientNamePreview');
+        const receiptPayerNamePreview = document.getElementById('receiptPayerNamePreview');
+        const receiptApartmentNumberPreview = document.getElementById('receiptApartmentNumberPreview'); // New span for preview
+        const receiptAmountPreview = document.getElementById('receiptAmountPreview');
+        const receiptAmountWordsPreview = document.getElementById('receiptAmountWordsPreview');
+        const receiptCurrencyPreview = document.getElementById('receiptCurrencyPreview');
+        const receiptReasonPreview = document.getElementById('receiptReasonPreview');
+
+        // Set default date to today
+        receiptDateInput.valueAsDate = new Date();
+
+        // Function to display messages
+        function showMessage(message, type = 'error') {
+            messageArea.textContent = message;
+            messageArea.className = `message-box ${type === 'error' ? 'message-box-error' : 'message-box-success'}`;
+            messageArea.style.display = 'block';
+            messageArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+                messageArea.style.display = 'none';
+            }, 3000);
+        }
+
+        // Tafqeet function (simplified)
+        function tafqeet(number, currency) {
+            const num = parseFloat(number);
+            if (isNaN(num)) return "";
+            const integerPart = Math.floor(num);
+            const decimalPart = Math.round((num - integerPart) * 100);
+            let words = integerPart.toString(); 
+            if (decimalPart > 0) {
+                words += ` و ${decimalPart}/100`;
+            }
+            return words;
+        }
+
+        function populatePreview() {
+            const recipientName = recipientNameInput.value; 
+            const payerName = payerNameInput.value.trim();
+            const apartmentNumber = apartmentNumberInput.value.trim(); // Get apartment number
+            const amount = amountInput.value;
+            const currency = currencyInput.value.trim();
+            const receiptDateValue = receiptDateInput.value; 
+            const reason = reasonInput.value.trim();
+
+            // Updated validation to include essential fields. Apartment number is optional.
+            if (!recipientName || !payerName || !amount || !currency || !receiptDateValue || !reason) {
+                showMessage('يرجى ملء جميع الحقول المطلوبة (باستثناء رقم الشقة فهو اختياري).', 'error');
+                return false;
+            }
+            if (parseFloat(amount) <= 0) {
+                showMessage('يجب أن يكون المبلغ أكبر من صفر.', 'error');
+                return false;
+            }
+
+            const now = new Date();
+            const displayDate = new Date(receiptDateValue); 
+            
+            receiptNumberPreview.textContent = `RCPT-${Date.now().toString().slice(-6)}`;
+            receiptDatePreview.textContent = displayDate.toLocaleDateString('ar-EG-u-nu-arab', { year: 'numeric', month: 'long', day: 'numeric' });
+            receiptTimePreview.textContent = now.toLocaleTimeString('ar-EG-u-nu-arab', { hour: '2-digit', minute: '2-digit', hour12: true });
+            receiptRecipientNamePreview.textContent = recipientName;
+            receiptPayerNamePreview.textContent = payerName;
+            receiptApartmentNumberPreview.textContent = apartmentNumber || "لا يوجد"; // Display apartment number or "لا يوجد" if empty
+            receiptAmountPreview.textContent = parseFloat(amount).toLocaleString('ar-EG-u-nu-arab', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            receiptAmountWordsPreview.textContent = tafqeet(amount, currency);
+            receiptCurrencyPreview.textContent = currency;
+            receiptReasonPreview.textContent = reason;
+            
+            return true; 
+        }
+
+        showPreviewButton.addEventListener('click', () => {
+            if (populatePreview()) {
+                receiptPreviewContainer.style.display = 'flex';
+            }
+        });
+
+        closePreviewButton.addEventListener('click', () => {
+            receiptPreviewContainer.style.display = 'none';
+        });
+        
+        receiptPreviewContainer.addEventListener('click', (event) => {
+            if (event.target === receiptPreviewContainer) {
+                receiptPreviewContainer.style.display = 'none';
+            }
+        });
+
+        async function commonDownloadLogic(actionType) { 
+            if (!populatePreview()) { 
+                return;
+            }
+            const isPreviewHidden = receiptPreviewContainer.style.display === 'none';
+            if (isPreviewHidden) {
+                receiptPreviewContainer.style.display = 'flex'; 
+            }
+
+            showMessage(`جارٍ إنشاء ${actionType === 'pdf' ? 'ملف PDF' : 'الصورة'}...`, 'success');
+
+            try {
+                const canvas = await html2canvas(receiptContentDiv, {
+                    scale: 2.5, 
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff', 
+                     onclone: (clonedDoc) => {
+                        const clonedReceiptContent = clonedDoc.getElementById('receiptContent');
+                        if (clonedReceiptContent) {
+                            clonedReceiptContent.style.fontFamily = "'Arial', 'Cairo', sans-serif";
+                        }
+                    }
+                });
+
+                const payerNameForFile = payerNameInput.value.trim() || 'عام';
+                const timestampForFile = Date.now();
+
+                if (actionType === 'image') {
+                    const imageURL = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.href = imageURL;
+                    link.download = `سند-قبض-${payerNameForFile}-${timestampForFile}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showMessage('تم تنزيل الصورة بنجاح!', 'success');
+                } else if (actionType === 'pdf') {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'mm',
+                        format: 'a5'
+                    });
+
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const aspectRatio = imgProps.width / imgProps.height;
+                    
+                    let newImgWidth = pdfWidth - 15; 
+                    let newImgHeight = newImgWidth / aspectRatio;
+
+                    if (newImgHeight > pdfHeight - 15) {
+                        newImgHeight = pdfHeight - 15;
+                        newImgWidth = newImgHeight * aspectRatio;
+                    }
+                    
+                    const x = (pdfWidth - newImgWidth) / 2;
+                    const y = (pdfHeight - newImgHeight) / 2;
+
+                    pdf.addImage(imgData, 'PNG', x, y, newImgWidth, newImgHeight);
+                    pdf.save(`سند-قبض-${payerNameForFile}-${timestampForFile}.pdf`);
+                    showMessage('تم تنزيل ملف PDF بنجاح!', 'success');
+                }
+            } catch (error) {
+                console.error(`Error generating ${actionType}:`, error);
+                showMessage(`حدث خطأ أثناء إنشاء ${actionType === 'pdf' ? 'ملف PDF' : 'الصورة'}.`, 'error');
+            }
+        }
+
+        downloadAsImageButton.addEventListener('click', () => commonDownloadLogic('image'));
+        downloadAsPdfButton.addEventListener('click', () => commonDownloadLogic('pdf'));
+
+    </script>
+</body>
+</html>
